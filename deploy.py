@@ -10,8 +10,8 @@ from netmiko import ConnectHandler
 BASE = Path(__file__).parent
 
 # 从环境变量读凭据（不在代码里写死）
-USER = os.environ.get("LAB_USER", "admin")
-PASS = os.environ.get("LAB_PASS", "Cisc0123")
+USER = os.environ.get("LAB_USER", "shijiaxin")
+PASS = os.environ.get("LAB_PASS", "SHItou@886")
 
 
 def load_inventory():
