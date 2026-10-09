@@ -24,6 +24,9 @@
 | 核心库 | netmiko 4.8.0、paramiko 2.12.0、pyyaml、openpyxl |
 | 模拟器 | EVE-NG / GNS3（cisco-switch-1: 172.16.101.4, cisco-switch-2: 172.16.101.5） |
 | 凭据 | 环境变量 `LAB_USER=****`、`LAB_PASS=****` |
+| 实验拓扑
+<img width="482" height="485" alt="image" src="https://github.com/user-attachments/assets/9a859343-318e-45ed-a399-3867bd372fbc" />
+
 
 ### 依赖安装
 
