@@ -1,0 +1,25 @@
+hostname: cisco-switch-1
+vlans:
+  - id: 10
+    name: switch-1_to_router-1
+  - id: 101
+    name: Engineering
+  - id: 999
+    name: Management
+
+interfaces:
+  - name: GigabitEthernet0/1
+    description: "to_cisco-router-1"
+    enabled: true
+    mode: trunk
+  - name: GigabitEthernet0/2
+    description: "PC-01"
+    enabled: true
+    mode: access
+    access_vlan: 101
+
+ntp_servers:
+  - 172.16.101.254
+
+syslog_servers:
+  - 172.16.101.254
