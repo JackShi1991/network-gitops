@@ -4,3 +4,8 @@ devices:
     mgmt_ip: 172.16.101.4
     role: access
     site: lab
+  - hostname: cisco-switch-2
+    platform: cisco_ios
+    mgmt_ip: 172.16.101.5
+    role: access
+    site: lab
