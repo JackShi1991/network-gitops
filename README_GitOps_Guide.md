@@ -150,15 +150,15 @@ ledger/snapshots/
 - **禁止硬编码密码**，统一从环境变量读取：
 
 ```python
-USER = os.environ.get("LAB_USER", "shijiaxin")
-PASS = os.environ.get("LAB_PASS", "SHItou@886")
+USER = os.environ.get("LAB_USER", "****")
+PASS = os.environ.get("LAB_PASS", "****")
 ```
 
 - Windows 设置环境变量：
 
 ```powershell
-setx LAB_USER shijiaxin
-setx LAB_PASS "SHItou@886"
+setx LAB_USER ****
+setx LAB_PASS "****"
 ```
 
 ---
@@ -174,7 +174,7 @@ hostname cisco-switch-2
 ip domain-name lab.local
 crypto key generate rsa
 ! 输入 1024
-username shijiaxin privilege 15 secret SHItou@886
+username **** privilege 15 secret ****
 enable secret SHItou@886
 aaa new-model
 aaa authentication login default local
