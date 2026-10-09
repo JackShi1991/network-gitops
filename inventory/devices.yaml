@@ -1,6 +1,6 @@
 devices:
-  - hostname: SW1
+  - hostname: cisco-switch-1
     platform: cisco_ios
-    mgmt_ip: 172.168.101.4
+    mgmt_ip: 172.16.101.4
     role: access
     site: lab
