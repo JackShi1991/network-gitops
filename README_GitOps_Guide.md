@@ -23,7 +23,7 @@
 | Python | 3.14 |
 | 核心库 | netmiko 4.8.0、paramiko 2.12.0、pyyaml、openpyxl |
 | 模拟器 | EVE-NG / GNS3（cisco-switch-1: 172.16.101.4, cisco-switch-2: 172.16.101.5） |
-| 凭据 | 环境变量 `LAB_USER=****`、`LAB_PASS=****` |
+| 凭据 | 环境变量 `LAB_USER=admin`、`LAB_PASS=cisco@123` |
 | 实验拓扑 | <img width="482" height="485" alt="image" src="https://github.com/user-attachments/assets/9a859343-318e-45ed-a399-3867bd372fbc" />
 
 
@@ -152,15 +152,15 @@ ledger/snapshots/
 - **禁止硬编码密码**，统一从环境变量读取：
 
 ```python
-USER = os.environ.get("LAB_USER", "****")
-PASS = os.environ.get("LAB_PASS", "****")
+USER = os.environ.get("LAB_USER", "admin")
+PASS = os.environ.get("LAB_PASS", "cisco@123")
 ```
 
 - Windows 设置环境变量：
 
 ```powershell
-setx LAB_USER "****"
-setx LAB_PASS "****"
+setx LAB_USER "admin"
+setx LAB_PASS "cisco@123"
 ```
 
 ---
@@ -176,8 +176,8 @@ hostname cisco-switch-2
 ip domain-name lab.local
 crypto key generate rsa
 ! 输入 1024
-username **** privilege 15 secret ****
-enable secret ****
+username admin privilege 15 secret cisco@123
+enable secret cisco@123
 aaa new-model
 aaa authentication login default local
 aaa authorization exec default local
