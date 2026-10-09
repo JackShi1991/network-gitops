@@ -16,6 +16,30 @@ USER = os.environ.get("LAB_USER", "shijiaxin")
 PASS = os.environ.get("LAB_PASS", "SHItou@886")
 
 
+def normalize_interface(ifname):
+    """规范化接口名，统一为简写格式用于匹配。
+    GigabitEthernet1/3 → Gi1/3
+    TenGigabitEthernet1/0/1 → Te1/0/1
+    FastEthernet0/1 → Fa0/1
+    Ethernet0/0 → Et0/0
+    """
+    ifname = ifname.strip()
+    mapping = [
+        ("GigabitEthernet", "Gi"),
+        ("TenGigabitEthernet", "Te"),
+        ("FastEthernet", "Fa"),
+        ("Ethernet", "Et"),
+        ("Port-channel", "Po"),
+        ("Loopback", "Lo"),
+        ("Tunnel", "Tu"),
+        ("Vlan", "Vl"),
+    ]
+    for full, short in mapping:
+        if ifname.startswith(full):
+            return ifname.replace(full, short, 1)
+    return ifname
+
+
 def load_inventory():
     with open(BASE / "inventory" / "devices.yaml") as f:
         return yaml.safe_load(f)
@@ -28,6 +52,7 @@ def ssh_collect(device, commands):
         "host": device["mgmt_ip"],
         "username": USER,
         "password": PASS,
+        "secret": PASS,
         "timeout": 30,
         "session_timeout": 60,
         "use_keys": False,
@@ -72,18 +97,14 @@ def parse_cdp_neighbors(cdp_output):
             }
 
         elif "Interface:" in line and "Port ID" in line:
-            # "Interface: GigabitEthernet1/3,  Port ID (outgoing port): GigabitEthernet1/3"
             try:
                 local_part = line.split("Interface:")[1].split(",")[0].strip()
                 remote_part = line.split("Port ID (outgoing port):")[1].strip()
-                current["local_interface"] = local_part
-                current["remote_interface"] = remote_part
+                current["local_interface"] = normalize_interface(local_part)
+                current["remote_interface"] = normalize_interface(remote_part)
             except Exception:
                 pass
 
-        elif line.startswith("Entry address(es):"):
-            # Next line(s) may contain IP
-            pass
         elif re.match(r'^\d+\.\d+\.\d+\.\d+$', line.strip()):
             current["remote_ip"] = line.strip()
 
@@ -116,7 +137,7 @@ def parse_interface_status(status_output):
         if len(parts) < 4:
             continue
 
-        port = parts[0]
+        port = normalize_interface(parts[0])
         status = "unknown"
         status_idx = -1
         for i, p in enumerate(parts):
@@ -158,7 +179,7 @@ def parse_ip_interface_brief(ip_output):
         parts = line.strip().split()
         if len(parts) >= 2:
             ip_info.append({
-                "interface": parts[0],
+                "interface": normalize_interface(parts[0]),
                 "ip": parts[1] if parts[1] != "unassigned" else "",
             })
 
@@ -168,12 +189,10 @@ def parse_ip_interface_brief(ip_output):
 def build_interconnect_table(inv):
     """Main logic: collect from all devices, build interconnect table."""
     all_links = []
-
     devices = inv.get("devices", [])
-
-    # 第一轮：每台设备采集 CDP + 接口信息
     device_data = {}
 
+    # 第一轮：采集
     for device in devices:
         print(f"\n📡 Collecting from {device['hostname']}...")
 
@@ -186,18 +205,16 @@ def build_interconnect_table(inv):
 
         results = ssh_collect(device, commands)
 
-        # 解析
         cdp_neighbors = parse_cdp_neighbors(results.get("show cdp neighbors detail", ""))
         interfaces = parse_interface_status(results.get("show interface status", ""))
         ip_info = parse_ip_interface_brief(results.get("show ip interface brief", ""))
         desc_lines = results.get("show interface description", "").strip().splitlines()
 
-        # 描述映射
         desc_map = {}
         for line in desc_lines[1:]:
             parts = line.strip().split(None, 3)
             if len(parts) >= 2:
-                iface = parts[0]
+                iface = normalize_interface(parts[0])
                 desc_text = parts[3] if len(parts) > 3 else ""
                 desc_map[iface] = desc_text
 
@@ -212,10 +229,9 @@ def build_interconnect_table(inv):
         print(f"  ✅ {len(interfaces)} interfaces, {len(cdp_neighbors)} CDP neighbors")
 
     # 第二轮：构建互联表
-    # 设备层级映射（从 inventory 或手动定义）
     device_layer = {}
     for d in devices:
-        device_layer[d["hostname"]] = d.get("layer", "接入层")
+        device_layer[d["hostname"]] = d.get("role", "access")
 
     for device in devices:
         dev_name = device["hostname"]
@@ -224,12 +240,10 @@ def build_interconnect_table(inv):
         cdp_list = dev_info["cdp"]
         ip_info = dev_info["ip_info"]
 
-        # 建立 CDP 快速查找: local_interface → neighbor info
         cdp_by_port = {}
         for cdp in cdp_list:
             cdp_by_port[cdp["local_interface"].lower()] = cdp
 
-        # IP 快速查找
         ip_by_if = {}
         for ip in ip_info:
             ip_by_if[ip["interface"].lower()] = ip["ip"]
@@ -237,49 +251,45 @@ def build_interconnect_table(inv):
         for intf in interfaces:
             port = intf["port"]
 
-            # 跳过 Vlan 接口（逻辑口单独处理）
+            # 跳过 Vlan 逻辑接口
             if port.lower().startswith("vl"):
                 continue
 
             link = {
-                # 本端
                 "local_device": dev_name,
                 "local_interface": port,
                 "local_logical": "",
                 "local_ip": ip_by_if.get(port.lower(), ""),
                 "status": intf["status"],
                 "speed": intf.get("speed", ""),
-                "layer": device_layer.get(dev_name, "接入层"),
-                "cable_type": "RJ45",  # 模拟器默认
-                # 对端
+                "layer": device_layer.get(dev_name, "access"),
+                "cable_type": "RJ45",
                 "remote_device": "",
                 "remote_interface": "",
                 "remote_logical": "",
                 "remote_ip": "",
             }
 
-            # 如果有 CDP 邻居
+            # CDP 邻居优先
             if port.lower() in cdp_by_port:
                 cdp = cdp_by_port[port.lower()]
                 link["remote_device"] = cdp["remote_device"]
                 link["remote_interface"] = cdp["remote_interface"]
                 link["remote_ip"] = cdp["remote_ip"]
 
-                # 尝试从对端设备数据中找对端接口 IP
+                # 尝试从对端设备数据里找对端接口 IP
                 remote_dev = cdp["remote_device"]
                 if remote_dev in device_data:
-                    remote_ip_by_if = {}
                     for rip in device_data[remote_dev].get("ip_info", []):
-                        remote_ip_by_if[rip["interface"].lower()] = rip["ip"]
-                    link["remote_ip"] = remote_ip_by_if.get(
-                        cdp["remote_interface"].lower(), cdp.get("remote_ip", "")
-                    )
+                        if rip["interface"].lower() == cdp["remote_interface"].lower():
+                            link["remote_ip"] = rip["ip"]
+                            break
 
-            # 从描述中推断对端信息（补充 CDP 没覆盖的）
+            # 描述作为补充
             if not link["remote_device"]:
                 desc = dev_info["desc_map"].get(port, "")
                 if desc:
-                    link["remote_device"] = desc  # 描述里可能写了 "to_xxx"
+                    link["remote_device"] = desc
 
             all_links.append(link)
 
@@ -320,14 +330,13 @@ def generate_interconnect_excel(links, output_dir):
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[1].height = 30
 
-    # 分组表头
+    # 表头
     headers = [
         "本端设备", "本端物理接口", "本端逻辑接口", "本端互联IP",
         "端口状态", "协商带宽", "网络层级", "线缆类型",
         "对端设备", "对端物理接口", "对端逻辑接口", "对端互联IP"
     ]
 
-    # 表头行
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=3, column=col, value=h)
         cell.font = header_font
@@ -335,7 +344,7 @@ def generate_interconnect_excel(links, output_dir):
         cell.alignment = center_align
         cell.border = thin_border
 
-    # 本端/对端分组颜色
+    # 本端/对端分组底色
     local_fill = PatternFill("solid", fgColor="D6E4F0")
     remote_fill = PatternFill("solid", fgColor="E2EFDA")
 
@@ -373,10 +382,10 @@ def generate_interconnect_excel(links, output_dir):
 
             if col <= 8:
                 cell.fill = local_fill
-                cell.alignment = center_align if col != 3 else left_align
+                cell.alignment = center_align
             else:
                 cell.fill = remote_fill
-                cell.alignment = center_align if col != 10 else left_align
+                cell.alignment = center_align
 
         # 状态列着色
         status_cell = ws.cell(row=row, column=5)
@@ -408,7 +417,6 @@ def main():
     for d in devices:
         print(f"   - {d['hostname']} ({d['mgmt_ip']})")
 
-    # 采集 + 构建
     links = build_interconnect_table(inv)
 
     if not links:
@@ -421,7 +429,7 @@ def main():
     print(f"\n{'本端接口':<20s} {'状态':<12s} {'→ 对端设备':<20s} {'对端接口':<20s}")
     print("-" * 75)
     for link in links:
-        remote = link.get("remote_device", "(未连接)")
+        remote = link.get("remote_device", "")
         remote_if = link.get("remote_interface", "")
         print(f"{link['local_device']}:{link['local_interface']:<15s} {link['status']:<12s} → {remote:<20s} {remote_if}")
 
