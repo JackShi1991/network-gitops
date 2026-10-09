@@ -159,7 +159,7 @@ PASS = os.environ.get("LAB_PASS", "****")
 - Windows 设置环境变量：
 
 ```powershell
-setx LAB_USER ****
+setx LAB_USER "****"
 setx LAB_PASS "****"
 ```
 
