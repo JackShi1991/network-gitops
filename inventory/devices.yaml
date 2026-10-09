@@ -1,0 +1,6 @@
+devices:
+  - hostname: SW1
+    platform: cisco_ios
+    mgmt_ip: 172.168.101.4
+    role: access
+    site: lab
