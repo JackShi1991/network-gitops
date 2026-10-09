@@ -1,0 +1,25 @@
+hostname: SW1
+vlans:
+  - id: 10
+    name: Sales
+  - id: 20
+    name: Engineering
+  - id: 999
+    name: Management
+
+interfaces:
+  - name: GigabitEthernet0/1
+    description: "to upstream"
+    enabled: true
+    mode: trunk
+  - name: GigabitEthernet0/2
+    description: "PC-01"
+    enabled: true
+    mode: access
+    access_vlan: 10
+
+ntp_servers:
+  - 172.16.101.254
+
+syslog_servers:
+  - 172.16.101.254
