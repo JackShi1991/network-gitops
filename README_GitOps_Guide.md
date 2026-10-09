@@ -177,7 +177,7 @@ ip domain-name lab.local
 crypto key generate rsa
 ! 输入 1024
 username **** privilege 15 secret ****
-enable secret SHItou@886
+enable secret ****
 aaa new-model
 aaa authentication login default local
 aaa authorization exec default local
