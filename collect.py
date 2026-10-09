@@ -10,8 +10,8 @@ import yaml
 from netmiko import ConnectHandler
 
 BASE = Path(__file__).parent
-USER = os.environ.get("LAB_USER", "shijiaxin")
-PASS = os.environ.get("LAB_PASS", "SHItou@886")
+USER = os.environ.get("LAB_USER", "admin")
+PASS = os.environ.get("LAB_PASS", "cisco@123")
 
 
 def load_inventory():
